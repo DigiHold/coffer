@@ -1,9 +1,13 @@
 from decimal import Decimal
+from http import HTTPStatus
 from typing import Any
+from uuid import UUID
 
 from flask import Flask
 from sqlalchemy import Executable, select
+from werkzeug.test import TestResponse
 
+from coffer.auth import issue_token
 from coffer.models import (
     Base,
     Cart,
@@ -17,7 +21,7 @@ from coffer.models import (
 
 
 class Shop:
-    """Builds rows and reads them back, each in its own app context."""
+    """Builds rows, reads them back and pays carts, each in its own app context."""
 
     def __init__(self, app: Flask) -> None:
         self.app = app
@@ -87,3 +91,20 @@ class Shop:
             return list(
                 db.session.scalars(select(Payment).where(Payment.cart_id == cart.id))
             )
+
+    def cart_status(self, cart: Cart) -> str | None:
+        with self.app.app_context():
+            return db.session.scalar(select(Cart.status).where(Cart.id == cart.id))
+
+    def pay(self, cart_id: UUID, user: User) -> TestResponse:
+        """POST the payment as the user, on a new client so threads can call it."""
+        token = issue_token(user.id, self.app.config["JWT_SECRET"])
+        return self.app.test_client().post(
+            f"/carts/{cart_id}/payments", headers={"Authorization": f"Bearer {token}"}
+        )
+
+
+def assert_error(response: TestResponse, status: HTTPStatus, code: str) -> None:
+    assert response.status_code == status
+    assert response.json is not None
+    assert response.json["error"]["code"] == code
