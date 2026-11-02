@@ -1,0 +1,64 @@
+name: coffer
+
+# Development only defaults. Set POSTGRES_PASSWORD and JWT_SECRET to override them.
+x-postgres: &postgres
+  image: postgres:18.6-trixie
+  environment:
+    POSTGRES_USER: coffer
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coffer}
+  healthcheck:
+    # Over TCP, so it stays red while the entrypoint creates the database.
+    test: ["CMD", "pg_isready", "--host=127.0.0.1", "--username=coffer"]
+    interval: 30s
+    timeout: 3s
+    start_period: 30s
+    start_interval: 1s
+
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql+psycopg://coffer:${POSTGRES_PASSWORD:-coffer}@db:5432/coffer
+  JWT_SECRET: ${JWT_SECRET:-development-only-signing-key-change-me}
+
+services:
+  db:
+    <<: *postgres
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment: *app-environment
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), 1)"]
+      interval: 30s
+      timeout: 3s
+      start_period: 30s
+      start_interval: 1s
+
+  # The tests get their own server, in memory, away from the demo data.
+  test-db:
+    <<: *postgres
+    tmpfs:
+      - /var/lib/postgresql
+    profiles: [dev]
+
+  dev:
+    build:
+      context: .
+      target: dev
+    environment:
+      <<: *app-environment
+      DATABASE_URL: postgresql+psycopg://coffer:${POSTGRES_PASSWORD:-coffer}@test-db:5432/coffer
+    depends_on:
+      test-db:
+        condition: service_healthy
+    profiles: [dev]
+
+volumes:
+  pgdata:

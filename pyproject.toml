@@ -1,0 +1,52 @@
+[project]
+name = "coffer"
+version = "0.1.0"
+description = "Payment endpoint for the carts of an online shop."
+requires-python = ">=3.15"
+dependencies = [
+    "alembic==1.20.1",
+    "flask==3.1.3",
+    "flask-sqlalchemy==3.1.1",
+    "gunicorn==26.2.0",
+    "psycopg[binary]==3.3.6",
+    "pyjwt==2.15.1",
+    "sqlalchemy==2.1.6",
+]
+
+[dependency-groups]
+dev = [
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.3",
+]
+
+[tool.alembic]
+script_location = "%(here)s/migrations"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "S", "BLE", "C4", "DTZ", "T20",
+    "G", "PT", "RET", "SIM", "PTH", "ERA", "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert, and their fake card tokens and signing keys are not secrets.
+"tests/**" = ["S101", "S105", "S106", "S107"]
+
+[tool.mypy]
+strict = true
+
+[tool.pytest]
+strict = true
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["coffer"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
