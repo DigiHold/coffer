@@ -1,0 +1,109 @@
+openapi: 3.2.0
+info:
+  title: Coffer
+  version: 0.1.0
+  description: Starts the payment of a cart with the user's default saved card.
+paths:
+  /carts/{cart_id}/payments:
+    post:
+      summary: Pay a cart
+      description: >
+        Charges the server side total of the cart to the user's default card.
+        The request has no body.
+      operationId: createPayment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cart_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: The card was charged and the cart is checked out.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "401":
+          $ref: "#/components/responses/Error"
+        "402":
+          $ref: "#/components/responses/FailedPayment"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        "502":
+          $ref: "#/components/responses/FailedPayment"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Error:
+      description: The request was refused. See error.code.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    FailedPayment:
+      description: The charge failed and the payment is stored as failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Payment:
+      type: object
+      required: [id, cart_id, status, amount, currency, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        cart_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [succeeded]
+        amount:
+          type: string
+          description: Decimal amount as a string, for example "70.00".
+        currency:
+          type: string
+          description: ISO 4217 code.
+        created_at:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - unauthorized
+                - card_declined
+                - cart_not_found
+                - not_found
+                - cart_not_active
+                - payment_in_progress
+                - nothing_to_pay
+                - no_payment_method
+                - provider_unavailable
+            message:
+              type: string
+            payment_id:
+              type: string
+              format: uuid
+              description: Only with card_declined and provider_unavailable.
